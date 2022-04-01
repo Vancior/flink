@@ -657,6 +657,7 @@ function sphinx_check() {
     else
         print_function "STAGE" "sphinx checks... [SUCCESS]"
     fi
+    popd
 }
 
 # mypy check

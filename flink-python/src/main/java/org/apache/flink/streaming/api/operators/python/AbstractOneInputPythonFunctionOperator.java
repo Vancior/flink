@@ -29,7 +29,7 @@ import org.apache.flink.core.memory.ByteArrayOutputStreamWithPos;
 import org.apache.flink.core.memory.DataInputViewStreamWrapper;
 import org.apache.flink.core.memory.DataOutputViewStreamWrapper;
 import org.apache.flink.fnexecution.v1.FlinkFnApi;
-import org.apache.flink.streaming.api.functions.python.DataStreamPythonFunctionInfo;
+import org.apache.flink.streaming.api.functions.python.DefaultDataStreamPythonFunctionInfo;
 import org.apache.flink.streaming.api.operators.BoundedOneInput;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.api.operators.TimestampedCollector;
@@ -87,7 +87,7 @@ public abstract class AbstractOneInputPythonFunctionOperator<IN, OUT>
 
     public AbstractOneInputPythonFunctionOperator(
             Configuration config,
-            DataStreamPythonFunctionInfo pythonFunctionInfo,
+            DefaultDataStreamPythonFunctionInfo pythonFunctionInfo,
             TypeInformation<IN> inputTypeInfo,
             TypeInformation<OUT> outputTypeInfo) {
         super(config, pythonFunctionInfo, outputTypeInfo);

@@ -28,7 +28,7 @@ import org.apache.flink.python.PythonFunctionRunner;
 import org.apache.flink.runtime.state.VoidNamespace;
 import org.apache.flink.runtime.state.VoidNamespaceSerializer;
 import org.apache.flink.streaming.api.TimeDomain;
-import org.apache.flink.streaming.api.functions.python.DataStreamPythonFunctionInfo;
+import org.apache.flink.streaming.api.functions.python.DefaultDataStreamPythonFunctionInfo;
 import org.apache.flink.streaming.api.operators.InternalTimer;
 import org.apache.flink.streaming.api.operators.InternalTimerService;
 import org.apache.flink.streaming.api.operators.Triggerable;
@@ -81,7 +81,7 @@ public class PythonKeyedProcessOperator<OUT>
 
     public PythonKeyedProcessOperator(
             Configuration config,
-            DataStreamPythonFunctionInfo pythonFunctionInfo,
+            DefaultDataStreamPythonFunctionInfo pythonFunctionInfo,
             RowTypeInfo inputTypeInfo,
             TypeInformation<OUT> outputTypeInfo) {
         this(
@@ -94,7 +94,7 @@ public class PythonKeyedProcessOperator<OUT>
 
     public PythonKeyedProcessOperator(
             Configuration config,
-            DataStreamPythonFunctionInfo pythonFunctionInfo,
+            DefaultDataStreamPythonFunctionInfo pythonFunctionInfo,
             RowTypeInfo inputTypeInfo,
             TypeInformation<OUT> outputTypeInfo,
             TypeSerializer namespaceSerializer) {
@@ -235,7 +235,8 @@ public class PythonKeyedProcessOperator<OUT>
 
     @Override
     public <T> AbstractDataStreamPythonFunctionOperator<T> copy(
-            DataStreamPythonFunctionInfo pythonFunctionInfo, TypeInformation<T> outputTypeInfo) {
+            DefaultDataStreamPythonFunctionInfo pythonFunctionInfo,
+            TypeInformation<T> outputTypeInfo) {
         return new PythonKeyedProcessOperator<>(
                 config,
                 pythonFunctionInfo,

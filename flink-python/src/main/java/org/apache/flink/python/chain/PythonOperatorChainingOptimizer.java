@@ -24,7 +24,7 @@ import org.apache.flink.core.memory.ManagedMemoryUseCase;
 import org.apache.flink.python.PythonOptions;
 import org.apache.flink.python.util.PythonConfigUtil;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.functions.python.DataStreamPythonFunctionInfo;
+import org.apache.flink.streaming.api.functions.python.DefaultDataStreamPythonFunctionInfo;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.api.operators.SimpleOperatorFactory;
 import org.apache.flink.streaming.api.operators.SourceOperatorFactory;
@@ -266,19 +266,20 @@ public class PythonOperatorChainingOptimizer {
                         ((SimpleOperatorFactory<?>) getOperatorFactory(downTransform))
                                 .getOperator();
 
-        final DataStreamPythonFunctionInfo upPythonFunctionInfo =
+        final DefaultDataStreamPythonFunctionInfo upPythonFunctionInfo =
                 upOperator.getPythonFunctionInfo().copy();
-        final DataStreamPythonFunctionInfo downPythonFunctionInfo =
+        final DefaultDataStreamPythonFunctionInfo downPythonFunctionInfo =
                 downOperator.getPythonFunctionInfo().copy();
 
-        DataStreamPythonFunctionInfo headPythonFunctionInfoOfDownOperator = downPythonFunctionInfo;
+        DefaultDataStreamPythonFunctionInfo headPythonFunctionInfoOfDownOperator =
+                downPythonFunctionInfo;
         while (headPythonFunctionInfoOfDownOperator.getInputs().length != 0) {
             headPythonFunctionInfoOfDownOperator =
-                    (DataStreamPythonFunctionInfo)
+                    (DefaultDataStreamPythonFunctionInfo)
                             headPythonFunctionInfoOfDownOperator.getInputs()[0];
         }
         headPythonFunctionInfoOfDownOperator.setInputs(
-                new DataStreamPythonFunctionInfo[] {upPythonFunctionInfo});
+                new DefaultDataStreamPythonFunctionInfo[] {upPythonFunctionInfo});
 
         final AbstractDataStreamPythonFunctionOperator<?> chainedOperator =
                 upOperator.copy(downPythonFunctionInfo, downOperator.getProducedType());
@@ -409,7 +410,7 @@ public class PythonOperatorChainingOptimizer {
                         || upOperator instanceof PythonCoProcessOperator);
     }
 
-    private static boolean areOperatorsChainableByChainingStrategy(
+    protected static boolean areOperatorsChainableByChainingStrategy(
             Transformation<?> upTransform, Transformation<?> downTransform) {
         // we use switch/case here to make sure this is exhaustive if ever values are added to the
         // ChainingStrategy enum
@@ -417,6 +418,10 @@ public class PythonOperatorChainingOptimizer {
 
         StreamOperatorFactory<?> upStreamOperator = getOperatorFactory(upTransform);
         StreamOperatorFactory<?> downStreamOperator = getOperatorFactory(downTransform);
+
+        if (upStreamOperator == null || downStreamOperator == null) {
+            return false;
+        }
 
         switch (upStreamOperator.getChainingStrategy()) {
             case NEVER:
@@ -454,7 +459,7 @@ public class PythonOperatorChainingOptimizer {
 
     // ----------------------- Utility Methods -----------------------
 
-    private static StreamOperatorFactory<?> getOperatorFactory(Transformation<?> transform) {
+    protected static StreamOperatorFactory<?> getOperatorFactory(Transformation<?> transform) {
         if (transform instanceof OneInputTransformation) {
             return ((OneInputTransformation<?, ?>) transform).getOperatorFactory();
         } else if (transform instanceof TwoInputTransformation) {
@@ -466,7 +471,7 @@ public class PythonOperatorChainingOptimizer {
         }
     }
 
-    private static void replaceInput(
+    protected static void replaceInput(
             Transformation<?> transformation,
             Transformation<?> oldInput,
             Transformation<?> newInput) {

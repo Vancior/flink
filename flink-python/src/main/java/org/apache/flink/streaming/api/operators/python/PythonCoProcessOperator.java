@@ -22,7 +22,7 @@ import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.memory.ManagedMemoryUseCase;
 import org.apache.flink.python.PythonFunctionRunner;
-import org.apache.flink.streaming.api.functions.python.DataStreamPythonFunctionInfo;
+import org.apache.flink.streaming.api.functions.python.DefaultDataStreamPythonFunctionInfo;
 import org.apache.flink.streaming.api.operators.InternalTimerService;
 import org.apache.flink.streaming.api.runners.python.beam.BeamDataStreamPythonFunctionRunner;
 import org.apache.flink.streaming.api.utils.ProtoUtils;
@@ -50,7 +50,7 @@ public class PythonCoProcessOperator<IN1, IN2, OUT>
 
     public PythonCoProcessOperator(
             Configuration config,
-            DataStreamPythonFunctionInfo pythonFunctionInfo,
+            DefaultDataStreamPythonFunctionInfo pythonFunctionInfo,
             TypeInformation<IN1> inputTypeInfo1,
             TypeInformation<IN2> inputTypeInfo2,
             TypeInformation<OUT> outputTypeInfo) {
@@ -115,7 +115,8 @@ public class PythonCoProcessOperator<IN1, IN2, OUT>
 
     @Override
     public <T> AbstractDataStreamPythonFunctionOperator<T> copy(
-            DataStreamPythonFunctionInfo pythonFunctionInfo, TypeInformation<T> outputTypeInfo) {
+            DefaultDataStreamPythonFunctionInfo pythonFunctionInfo,
+            TypeInformation<T> outputTypeInfo) {
         return new PythonCoProcessOperator<>(
                 config,
                 pythonFunctionInfo,

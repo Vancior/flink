@@ -30,7 +30,7 @@ import org.apache.flink.core.memory.ByteArrayOutputStreamWithPos;
 import org.apache.flink.core.memory.DataInputViewStreamWrapper;
 import org.apache.flink.core.memory.DataOutputViewStreamWrapper;
 import org.apache.flink.fnexecution.v1.FlinkFnApi;
-import org.apache.flink.streaming.api.functions.python.DataStreamPythonFunctionInfo;
+import org.apache.flink.streaming.api.functions.python.DefaultDataStreamPythonFunctionInfo;
 import org.apache.flink.streaming.api.operators.BoundedMultiInput;
 import org.apache.flink.streaming.api.operators.TimestampedCollector;
 import org.apache.flink.streaming.api.operators.TwoInputStreamOperator;
@@ -79,7 +79,7 @@ public abstract class AbstractTwoInputPythonFunctionOperator<IN1, IN2, OUT>
 
     public AbstractTwoInputPythonFunctionOperator(
             Configuration config,
-            DataStreamPythonFunctionInfo pythonFunctionInfo,
+            DefaultDataStreamPythonFunctionInfo pythonFunctionInfo,
             TypeInformation<IN1> inputTypeInfo1,
             TypeInformation<IN2> inputTypeInfo2,
             TypeInformation<OUT> outputTypeInfo) {

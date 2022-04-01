@@ -22,7 +22,7 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.streaming.api.functions.python.DataStreamPythonFunctionInfo;
+import org.apache.flink.streaming.api.functions.python.DefaultDataStreamPythonFunctionInfo;
 import org.apache.flink.table.functions.python.PythonEnv;
 import org.apache.flink.util.Preconditions;
 
@@ -50,14 +50,14 @@ public abstract class AbstractDataStreamPythonFunctionOperator<OUT>
     private boolean containsPartitionCustom;
 
     /** The serialized python function to be executed. */
-    private final DataStreamPythonFunctionInfo pythonFunctionInfo;
+    private final DefaultDataStreamPythonFunctionInfo pythonFunctionInfo;
 
     /** The TypeInformation of output data. */
     private final TypeInformation<OUT> outputTypeInfo;
 
     public AbstractDataStreamPythonFunctionOperator(
             Configuration config,
-            DataStreamPythonFunctionInfo pythonFunctionInfo,
+            DefaultDataStreamPythonFunctionInfo pythonFunctionInfo,
             TypeInformation<OUT> outputTypeInfo) {
         super(config);
         this.pythonFunctionInfo = Preconditions.checkNotNull(pythonFunctionInfo);
@@ -75,7 +75,8 @@ public abstract class AbstractDataStreamPythonFunctionOperator<OUT>
     }
 
     public abstract <T> AbstractDataStreamPythonFunctionOperator<T> copy(
-            DataStreamPythonFunctionInfo pythonFunctionInfo, TypeInformation<T> outputTypeInfo);
+            DefaultDataStreamPythonFunctionInfo pythonFunctionInfo,
+            TypeInformation<T> outputTypeInfo);
 
     public Map<String, String> getInternalParameters() {
         Map<String, String> internalParameters = new HashMap<>();
@@ -101,7 +102,7 @@ public abstract class AbstractDataStreamPythonFunctionOperator<OUT>
     // Getters
     // ----------------------------------------------------------------------
 
-    public DataStreamPythonFunctionInfo getPythonFunctionInfo() {
+    public DefaultDataStreamPythonFunctionInfo getPythonFunctionInfo() {
         return pythonFunctionInfo;
     }
 }

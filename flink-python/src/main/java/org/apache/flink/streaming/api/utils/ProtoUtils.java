@@ -24,8 +24,11 @@ import org.apache.flink.api.common.state.StateTtlConfig;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.fnexecution.v1.FlinkFnApi;
+import org.apache.flink.streaming.api.functions.python.DagDataStreamPythonFunctionInfo;
 import org.apache.flink.streaming.api.functions.python.DataStreamPythonFunctionInfo;
+import org.apache.flink.streaming.api.functions.python.DefaultDataStreamPythonFunctionInfo;
 import org.apache.flink.table.functions.python.PythonAggregateFunctionInfo;
+import org.apache.flink.table.functions.python.PythonFunction;
 import org.apache.flink.table.functions.python.PythonFunctionInfo;
 import org.apache.flink.table.functions.python.PythonFunctionKind;
 import org.apache.flink.table.runtime.dataview.DataViewSpec;
@@ -34,10 +37,15 @@ import org.apache.flink.table.runtime.dataview.MapViewSpec;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.util.Preconditions;
 
+import org.apache.flink.shaded.guava30.com.google.common.graph.Graph;
+import org.apache.flink.shaded.guava30.com.google.common.graph.GraphBuilder;
+import org.apache.flink.shaded.guava30.com.google.common.graph.MutableGraph;
+
 import com.google.protobuf.ByteString;
 import org.apache.beam.model.pipeline.v1.RunnerApi;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -129,15 +137,15 @@ public enum ProtoUtils {
     }
 
     public static FlinkFnApi.UserDefinedDataStreamFunction createUserDefinedDataStreamFunctionProto(
-            DataStreamPythonFunctionInfo dataStreamPythonFunctionInfo,
+            int functionType,
+            PythonFunction pythonFunction,
             RuntimeContext runtimeContext,
             Map<String, String> internalParameters,
             boolean inBatchExecutionMode) {
         FlinkFnApi.UserDefinedDataStreamFunction.Builder builder =
                 FlinkFnApi.UserDefinedDataStreamFunction.newBuilder();
         builder.setFunctionType(
-                FlinkFnApi.UserDefinedDataStreamFunction.FunctionType.forNumber(
-                        dataStreamPythonFunctionInfo.getFunctionType()));
+                FlinkFnApi.UserDefinedDataStreamFunction.FunctionType.forNumber(functionType));
         builder.setRuntimeContext(
                 FlinkFnApi.UserDefinedDataStreamFunction.RuntimeContext.newBuilder()
                         .setTaskName(runtimeContext.getTaskName())
@@ -148,8 +156,12 @@ public enum ProtoUtils {
                         .setIndexOfThisSubtask(runtimeContext.getIndexOfThisSubtask())
                         .setAttemptNumber(runtimeContext.getAttemptNumber())
                         .addAllJobParameters(
-                                runtimeContext.getExecutionConfig().getGlobalJobParameters().toMap()
-                                        .entrySet().stream()
+                                runtimeContext
+                                        .getExecutionConfig()
+                                        .getGlobalJobParameters()
+                                        .toMap()
+                                        .entrySet()
+                                        .stream()
                                         .map(
                                                 entry ->
                                                         FlinkFnApi.UserDefinedDataStreamFunction
@@ -170,11 +182,7 @@ public enum ProtoUtils {
                                         .collect(Collectors.toList()))
                         .setInBatchExecutionMode(inBatchExecutionMode)
                         .build());
-        builder.setPayload(
-                ByteString.copyFrom(
-                        dataStreamPythonFunctionInfo
-                                .getPythonFunction()
-                                .getSerializedPythonFunction()));
+        builder.setPayload(ByteString.copyFrom(pythonFunction.getSerializedPythonFunction()));
         builder.setMetricEnabled(true);
         return builder.build();
     }
@@ -193,6 +201,30 @@ public enum ProtoUtils {
                     RuntimeContext runtimeContext,
                     Map<String, String> internalParameters,
                     boolean inBatchExecutionMode) {
+        if (dataStreamPythonFunctionInfo instanceof DefaultDataStreamPythonFunctionInfo) {
+            return createUserDefinedDataStreamFunctionProtosChain(
+                    (DefaultDataStreamPythonFunctionInfo) dataStreamPythonFunctionInfo,
+                    runtimeContext,
+                    internalParameters,
+                    inBatchExecutionMode);
+        } else if (dataStreamPythonFunctionInfo instanceof DagDataStreamPythonFunctionInfo) {
+            return createUserDefinedDataStreamFunctionProtosDag(
+                    (DagDataStreamPythonFunctionInfo) dataStreamPythonFunctionInfo,
+                    runtimeContext,
+                    internalParameters,
+                    inBatchExecutionMode);
+        }
+        throw new IllegalArgumentException(
+                "Unsupported python function info type: "
+                        + dataStreamPythonFunctionInfo.getClass().getSimpleName());
+    }
+
+    private static List<FlinkFnApi.UserDefinedDataStreamFunction>
+            createUserDefinedDataStreamFunctionProtosChain(
+                    DefaultDataStreamPythonFunctionInfo dataStreamPythonFunctionInfo,
+                    RuntimeContext runtimeContext,
+                    Map<String, String> internalParameters,
+                    boolean inBatchExecutionMode) {
         List<FlinkFnApi.UserDefinedDataStreamFunction> results = new ArrayList<>();
 
         Object[] inputs = dataStreamPythonFunctionInfo.getInputs();
@@ -200,7 +232,7 @@ public enum ProtoUtils {
             Preconditions.checkArgument(inputs.length == 1);
             results.addAll(
                     createUserDefinedDataStreamFunctionProtos(
-                            (DataStreamPythonFunctionInfo) inputs[0],
+                            (DefaultDataStreamPythonFunctionInfo) inputs[0],
                             runtimeContext,
                             internalParameters,
                             inBatchExecutionMode));
@@ -208,16 +240,41 @@ public enum ProtoUtils {
 
         results.add(
                 createUserDefinedDataStreamFunctionProto(
-                        dataStreamPythonFunctionInfo,
+                        dataStreamPythonFunctionInfo.getFunctionType(),
+                        dataStreamPythonFunctionInfo.getPythonFunction(),
                         runtimeContext,
                         internalParameters,
                         inBatchExecutionMode));
         return results;
     }
 
+    private static Graph<FlinkFnApi.UserDefinedDataStreamFunction>
+            createUserDefinedDataStreamFunctionProtosDag(
+                    DagDataStreamPythonFunctionInfo dataStreamPythonFunctionInfo,
+                    RuntimeContext runtimeContext,
+                    Map<String, String> internalParameters,
+                    boolean inBatchExecutionMode) {
+        MutableGraph<FlinkFnApi.UserDefinedDataStreamFunction> graph =
+                GraphBuilder.directed().build();
+        Map<PythonFunction, FlinkFnApi.UserDefinedDataStreamFunction> protoMap = new HashMap<>();
+        for (Map.Entry<PythonFunction, Integer> entry :
+                dataStreamPythonFunctionInfo.getPythonFunctionsWithType().entrySet()) {
+            FlinkFnApi.UserDefinedDataStreamFunction proto =
+                    createUserDefinedDataStreamFunctionProto(
+                            entry.getValue(),
+                            entry.getKey(),
+                            runtimeContext,
+                            internalParameters,
+                            inBatchExecutionMode);
+            protoMap.put(entry.getKey(), proto);
+            graph.addNode(proto);
+        }
+        return GraphBuilder.from(graph).immutable().build();
+    }
+
     public static List<FlinkFnApi.UserDefinedDataStreamFunction>
             createUserDefinedDataStreamStatefulFunctionProtos(
-                    DataStreamPythonFunctionInfo dataStreamPythonFunctionInfo,
+                    DefaultDataStreamPythonFunctionInfo dataStreamPythonFunctionInfo,
                     RuntimeContext runtimeContext,
                     Map<String, String> internalParameters,
                     TypeInformation<?> keyTypeInfo,

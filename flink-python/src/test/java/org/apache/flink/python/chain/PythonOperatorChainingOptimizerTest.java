@@ -25,10 +25,11 @@ import org.apache.flink.api.scala.typeutils.Types;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.memory.ManagedMemoryUseCase;
 import org.apache.flink.streaming.api.functions.python.DataStreamPythonFunction;
-import org.apache.flink.streaming.api.functions.python.DataStreamPythonFunctionInfo;
+import org.apache.flink.streaming.api.functions.python.DefaultDataStreamPythonFunctionInfo;
 import org.apache.flink.streaming.api.operators.ChainingStrategy;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.api.operators.TwoInputStreamOperator;
+import org.apache.flink.streaming.api.operators.python.PythonCoProcessOperator;
 import org.apache.flink.streaming.api.operators.python.PythonKeyedCoProcessOperator;
 import org.apache.flink.streaming.api.operators.python.PythonKeyedProcessOperator;
 import org.apache.flink.streaming.api.operators.python.PythonProcessOperator;
@@ -633,7 +634,7 @@ public class PythonOperatorChainingOptimizerTest {
     // ----------------------- Utility Methods -----------------------
 
     private void validateChainedPythonFunctions(
-            DataStreamPythonFunctionInfo pythonFunctionInfo,
+            DefaultDataStreamPythonFunctionInfo pythonFunctionInfo,
             String... expectedChainedPythonFunctions) {
         for (String expectedPythonFunction : expectedChainedPythonFunctions) {
             assertArrayEquals(
@@ -642,7 +643,7 @@ public class PythonOperatorChainingOptimizerTest {
             Object[] inputs = pythonFunctionInfo.getInputs();
             if (inputs.length > 0) {
                 assertEquals(1, inputs.length);
-                pythonFunctionInfo = (DataStreamPythonFunctionInfo) inputs[0];
+                pythonFunctionInfo = (DefaultDataStreamPythonFunctionInfo) inputs[0];
             } else {
                 pythonFunctionInfo = null;
             }
@@ -651,39 +652,53 @@ public class PythonOperatorChainingOptimizerTest {
         assertNull(pythonFunctionInfo);
     }
 
-    private static <OUT> PythonKeyedProcessOperator<OUT> createKeyedProcessOperator(
+    protected static <OUT> PythonKeyedProcessOperator<OUT> createKeyedProcessOperator(
             String functionContent,
             RowTypeInfo inputTypeInfo,
             TypeInformation<OUT> outputTypeInfo) {
         return new PythonKeyedProcessOperator<>(
                 new Configuration(),
-                new DataStreamPythonFunctionInfo(
+                new DefaultDataStreamPythonFunctionInfo(
                         new DataStreamPythonFunction(functionContent.getBytes(), null), -1),
                 inputTypeInfo,
                 outputTypeInfo);
     }
 
-    private static <OUT> PythonKeyedCoProcessOperator<OUT> createCoKeyedProcessOperator(
+    protected static <OUT> PythonKeyedCoProcessOperator<OUT> createCoKeyedProcessOperator(
             String functionContent,
             RowTypeInfo inputTypeInfo1,
             RowTypeInfo inputTypeInfo2,
             TypeInformation<OUT> outputTypeInfo) {
         return new PythonKeyedCoProcessOperator(
                 new Configuration(),
-                new DataStreamPythonFunctionInfo(
+                new DefaultDataStreamPythonFunctionInfo(
                         new DataStreamPythonFunction(functionContent.getBytes(), null), -1),
                 inputTypeInfo1,
                 inputTypeInfo2,
                 outputTypeInfo);
     }
 
-    private static <IN, OUT> PythonProcessOperator<IN, OUT> createProcessOperator(
+    protected static <IN1, IN2, OUT> PythonCoProcessOperator<IN1, IN2, OUT> createCoProcessOperator(
+            String functionContent,
+            TypeInformation<IN1> inputTypeInfo1,
+            TypeInformation<IN2> inputTypeInfo2,
+            TypeInformation<OUT> outputTypeInfo) {
+        return new PythonCoProcessOperator(
+                new Configuration(),
+                new DefaultDataStreamPythonFunctionInfo(
+                        new DataStreamPythonFunction(functionContent.getBytes(), null), -1),
+                inputTypeInfo1,
+                inputTypeInfo2,
+                outputTypeInfo);
+    }
+
+    protected static <IN, OUT> PythonProcessOperator<IN, OUT> createProcessOperator(
             String functionContent,
             TypeInformation<IN> inputTypeInfo,
             TypeInformation<OUT> outputTypeInfo) {
         return new PythonProcessOperator<>(
                 new Configuration(),
-                new DataStreamPythonFunctionInfo(
+                new DefaultDataStreamPythonFunctionInfo(
                         new DataStreamPythonFunction(functionContent.getBytes(), null), -1),
                 inputTypeInfo,
                 outputTypeInfo);

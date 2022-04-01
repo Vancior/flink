@@ -22,8 +22,10 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.streaming.api.operators.TimestampedCollector;
+import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.Collector;
+import org.apache.flink.util.OutputTag;
 
 /** Output collector for Python UDF runner. */
 @Internal
@@ -45,6 +47,18 @@ public final class RunnerOutputCollector<OUT> implements Collector<Row> {
             collector.eraseTimestamp();
         }
         collector.collect((OUT) runnerOutput.getField(1));
+    }
+
+    @SuppressWarnings("unchecked")
+    public <X> void collect(OutputTag<X> outputTag, Row runnerOutput) {
+        long ts = (long) runnerOutput.getField(0);
+        StreamRecord<X> record;
+        if (ts != Long.MIN_VALUE) {
+            record = new StreamRecord<>((X) runnerOutput.getField(1), ts);
+        } else {
+            record = new StreamRecord<>((X) runnerOutput.getField(1));
+        }
+        collector.collect(outputTag, record);
     }
 
     @Override
